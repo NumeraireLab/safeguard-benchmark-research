@@ -46,6 +46,19 @@ def cmd_capture(args) -> int:
 
     if args.target == "fixture":
         target, name = fixture_target(REPO / "fixtures"), "fixture"
+    elif args.target == "reference":
+        from sgbench.targets.reference import make_target, prompt_fingerprint
+        target, name = make_target(model=args.model or "claude-sonnet-5"), "reference"
+        # The prompt and the window caps are part of the result. Recording them
+        # next to the capture is what makes the run auditable later.
+        (RESULTS).mkdir(parents=True, exist_ok=True)
+        (RESULTS / "target-provenance.json").write_text(
+            json.dumps(
+                {"target": name, "model": args.model or "claude-sonnet-5",
+                 **prompt_fingerprint()}, indent=2
+            ),
+            encoding="utf-8",
+        )
     elif args.target == "openbb":
         print(
             "  [stop] The OpenBB adapter is unverified — see "
@@ -126,7 +139,10 @@ def main() -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     c = sub.add_parser("capture", help="run queries against a target")
-    c.add_argument("--target", default="fixture", choices=["fixture", "openbb"])
+    c.add_argument(
+        "--target", default="fixture",
+        choices=["fixture", "reference", "openbb"],
+    )
     c.add_argument("--tier", default=None, help="limit to one tier")
     c.add_argument("--model", default=None, help="model id, recorded for provenance")
     c.add_argument("--min-per-tier", type=int, default=50)

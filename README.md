@@ -43,10 +43,35 @@ the investigation checklist and Plan B.
 ## The study pipeline
 
 ```bash
-python3 scripts/run_study.py capture --target fixture   # expensive, once
-python3 scripts/run_study.py verify                     # free, repeatable
-python3 scripts/run_study.py export --sample-passed 100 # manual adjudication sheet
+export ANTHROPIC_API_KEY=...                                    # capture calls a live model
+.venv/bin/python scripts/run_study.py capture --target reference # expensive, once
+.venv/bin/python scripts/run_study.py verify                     # free, repeatable
+.venv/bin/python scripts/run_study.py export --sample-passed 100 # adjudication sheet
 ```
+
+### The target
+
+**OpenBB Copilot is not the target, and cannot be.** It ships inside OpenBB
+Workspace — hosted and commercial — and this study does not test commercial
+products. What is on PyPI is the `openbb` *data platform* (real market data, no
+agent) and `openbb-ai` (an SDK for building agents that plug *into* Workspace).
+
+So the target is a **reference copilot**: a stock LangGraph `create_react_agent`
+with six tools backed by the OpenBB data platform, in
+`src/sgbench/targets/reference.py`. Everything about it is published — the code,
+the tool window caps, and the system prompt verbatim — because the only defence
+for measuring a self-built agent is that every choice is inspectable.
+
+The prompt is deliberately **careful**, not naive: it instructs the model to
+state only figures the tools returned and to decline when they do not cover the
+question. A finding under a lax prompt is dismissible; a finding produced
+*despite* an explicit instruction is the claim worth publishing.
+
+Tool windows are capped for a reason that is Safeguard's own rule: the raw
+Treasury endpoint returns ~250 rows x ~12 tenors, which would admit ~3,000
+numbers as "grounded" and let almost any figure match by accident. Widening the
+allowed set is the silent direction. Caps are recorded in
+`results/target-provenance.json` alongside the prompt hash.
 
 **Capture and verify are separate on purpose.** Capture costs money, needs
 keys, and is non-deterministic — the same query re-run gives a different
