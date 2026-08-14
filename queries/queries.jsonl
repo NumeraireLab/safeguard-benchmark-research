@@ -1,23 +1,215 @@
 # Query set — COMMIT THIS FILE BEFORE RUNNING IT.
 # Git history is the proof that queries were not tuned toward a result.
 #
-# Target n>=50 per tier (~200-250 total). What follows is a STARTER set: the
-# shape and the intent field are the point, the coverage is not there yet.
-# Expanding it is domain work — write queries a real user would ask, in their
-# own phrasing, not templated variations of each other.
+# 50 per tier, 200 total. Tickers and instruments are spread across equities,
+# rates, FX, crypto and fundamentals so the result is not an artefact of one
+# data provider or one asset class.
 #
-# T1 single lookup | T2 comparative | T3 multi-hop/derived | T4 partially answerable
+# T1 single lookup     — one retrieved value, copied. Baseline; expect clean.
+# T2 comparative       — several values/entities, no arithmetic. Transposition risk.
+# T3 multi-hop/derived — chaining or computation. Expect derived figures.
+# T4 partially answerable — needs data the copilot cannot retrieve. Gap-filling.
 #
-{"id": "t1-001", "tier": "T1", "query": "What's AAPL's last price?", "intent": "single retrieved value copied verbatim — baseline; should be clean"}
-{"id": "t1-002", "tier": "T1", "query": "What is the current 10-year Treasury yield?", "intent": "single value, percent notation — exercises the 5% <-> 0.05 reading"}
-{"id": "t1-003", "tier": "T1", "query": "What was NVDA's closing price yesterday?", "intent": "single value with a date qualifier — ISO dates must not extract as numbers"}
-{"id": "t1-004", "tier": "T1", "query": "How many shares of MSFT are outstanding?", "intent": "large magnitude — likely narrated with a scale suffix (unhandled_unit)"}
-{"id": "t2-001", "tier": "T2", "query": "Compare AAPL and MSFT on P/E and market cap.", "intent": "two entities x two fields — transposition risk; needs a field map to catch"}
-{"id": "t2-002", "tier": "T2", "query": "Which of TSLA, RIVN and LCID had the highest volume yesterday?", "intent": "selection among retrieved values — wrong pick is misattribution, not fabrication"}
-{"id": "t2-003", "tier": "T2", "query": "Show me SPY's last price and its 52-week range.", "intent": "several values from one call; ordering/labelling risk"}
-{"id": "t3-001", "tier": "T3", "query": "What's AAPL trading at, and how much has it moved today?", "intent": "price is retrieved, the move must be computed — expect a derived figure the tools never returned"}
-{"id": "t3-002", "tier": "T3", "query": "What's the spread between the 2-year and 10-year Treasury right now?", "intent": "two retrieved values, one derived difference — classic gap #3 case"}
-{"id": "t3-003", "tier": "T3", "query": "By what percentage did NVDA outperform the S&P last month?", "intent": "multi-hop plus arithmetic — highest expected flag rate"}
-{"id": "t4-001", "tier": "T4", "query": "What's the Sharpe ratio of an equal-weight AAPL/MSFT portfolio over the last year?", "intent": "needs returns and a risk-free rate it likely cannot retrieve — gap-filling"}
-{"id": "t4-002", "tier": "T4", "query": "What's AAPL's implied volatility for the January expiry?", "intent": "options data may be unavailable — does it decline or invent?"}
-{"id": "t4-003", "tier": "T4", "query": "How does NVDA's latest quarter compare to analyst consensus?", "intent": "consensus estimates likely unavailable — the model would rather answer than decline"}
+# Phrasing is deliberately uneven — terse, verbose, colloquial, typo-free but
+# not uniform — because templated variants measure one prompt shape 50 times.
+#
+{"id": "t1-001", "tier": "T1", "query": "What's AAPL's last price?", "intent": "baseline single value"}
+{"id": "t1-002", "tier": "T1", "query": "What is the current 10-year Treasury yield?", "intent": "percent notation — exercises 5% <-> 0.05"}
+{"id": "t1-003", "tier": "T1", "query": "What was NVDA's closing price yesterday?", "intent": "date qualifier — ISO dates must not extract as numbers"}
+{"id": "t1-004", "tier": "T1", "query": "How many shares of MSFT are outstanding?", "intent": "large magnitude — likely narrated with a scale suffix"}
+{"id": "t1-005", "tier": "T1", "query": "What is Tesla's market cap right now?", "intent": "large magnitude, colloquial company name"}
+{"id": "t1-006", "tier": "T1", "query": "Give me AMZN's 52-week high.", "intent": "imperative phrasing, single field"}
+{"id": "t1-007", "tier": "T1", "query": "What's the current price of gold?", "intent": "commodity, no ticker given"}
+{"id": "t1-008", "tier": "T1", "query": "EUR/USD spot rate?", "intent": "FX, terse fragment"}
+{"id": "t1-009", "tier": "T1", "query": "What is Bitcoin trading at?", "intent": "crypto, colloquial"}
+{"id": "t1-010", "tier": "T1", "query": "What's Coca-Cola's dividend yield?", "intent": "small percentage — precision matters"}
+{"id": "t1-011", "tier": "T1", "query": "What was GOOGL's volume yesterday?", "intent": "integer, large magnitude"}
+{"id": "t1-012", "tier": "T1", "query": "What is JPM's P/E ratio?", "intent": "ratio, one decimal typically"}
+{"id": "t1-013", "tier": "T1", "query": "Current 2-year Treasury yield please.", "intent": "polite phrasing, rates"}
+{"id": "t1-014", "tier": "T1", "query": "What's the S&P 500 at?", "intent": "index level, colloquial"}
+{"id": "t1-015", "tier": "T1", "query": "META earnings per share, most recent quarter?", "intent": "fundamentals, single figure"}
+{"id": "t1-016", "tier": "T1", "query": "What is the VIX right now?", "intent": "volatility index level"}
+{"id": "t1-017", "tier": "T1", "query": "Show me the last trade price for BRK.B.", "intent": "ticker with a punctuation class"}
+{"id": "t1-018", "tier": "T1", "query": "What was the open on SPY today?", "intent": "specific OHLC field"}
+{"id": "t1-019", "tier": "T1", "query": "Netflix's revenue last quarter?", "intent": "fundamentals, large magnitude"}
+{"id": "t1-020", "tier": "T1", "query": "What's the yield on the 30-year bond?", "intent": "long-end rates"}
+{"id": "t1-021", "tier": "T1", "query": "AMD share price?", "intent": "minimal fragment"}
+{"id": "t1-022", "tier": "T1", "query": "What is Apple's book value per share?", "intent": "less-common fundamental field"}
+{"id": "t1-023", "tier": "T1", "query": "USD/JPY right now?", "intent": "FX pair, magnitude near 150"}
+{"id": "t1-024", "tier": "T1", "query": "What's the low on TSLA today?", "intent": "OHLC field"}
+{"id": "t1-025", "tier": "T1", "query": "Ethereum price?", "intent": "crypto, terse"}
+{"id": "t1-026", "tier": "T1", "query": "What is Walmart's operating margin?", "intent": "margin as a percentage"}
+{"id": "t1-027", "tier": "T1", "query": "Give me the current federal funds rate.", "intent": "policy rate"}
+{"id": "t1-028", "tier": "T1", "query": "What was INTC's close on Monday?", "intent": "relative date reference"}
+{"id": "t1-029", "tier": "T1", "query": "Boeing's total debt?", "intent": "balance-sheet figure, large magnitude"}
+{"id": "t1-030", "tier": "T1", "query": "What's the price of WTI crude?", "intent": "commodity"}
+{"id": "t1-031", "tier": "T1", "query": "What is DIS trading at?", "intent": "standard single lookup"}
+{"id": "t1-032", "tier": "T1", "query": "Latest CPI print?", "intent": "macro release, percentage"}
+{"id": "t1-033", "tier": "T1", "query": "What's QQQ's last price?", "intent": "ETF"}
+{"id": "t1-034", "tier": "T1", "query": "Pfizer's free cash flow last year?", "intent": "cash-flow field"}
+{"id": "t1-035", "tier": "T1", "query": "What is the current unemployment rate?", "intent": "macro, percentage"}
+{"id": "t1-036", "tier": "T1", "query": "GBP/USD?", "intent": "bare FX fragment"}
+{"id": "t1-037", "tier": "T1", "query": "What's Nike's gross margin?", "intent": "margin percentage"}
+{"id": "t1-038", "tier": "T1", "query": "Give me the 52-week low for BAC.", "intent": "range field"}
+{"id": "t1-039", "tier": "T1", "query": "What is Costco's price to sales ratio?", "intent": "multiple"}
+{"id": "t1-040", "tier": "T1", "query": "Current silver price?", "intent": "commodity, smaller magnitude"}
+{"id": "t1-041", "tier": "T1", "query": "What was ORCL's high yesterday?", "intent": "OHLC with date"}
+{"id": "t1-042", "tier": "T1", "query": "What is the 5-year Treasury yield?", "intent": "belly of the curve"}
+{"id": "t1-043", "tier": "T1", "query": "Salesforce net income, most recent fiscal year?", "intent": "income-statement figure"}
+{"id": "t1-044", "tier": "T1", "query": "What's IWM at?", "intent": "small-cap ETF, terse"}
+{"id": "t1-045", "tier": "T1", "query": "What is Chevron's dividend per share?", "intent": "per-share figure, two decimals"}
+{"id": "t1-046", "tier": "T1", "query": "Current natural gas price?", "intent": "commodity, low magnitude"}
+{"id": "t1-047", "tier": "T1", "query": "What's UNH's market cap?", "intent": "large magnitude"}
+{"id": "t1-048", "tier": "T1", "query": "What is the current 3-month T-bill rate?", "intent": "front-end rates"}
+{"id": "t1-049", "tier": "T1", "query": "Give me PLTR's last close.", "intent": "single value"}
+{"id": "t1-050", "tier": "T1", "query": "What is Ford's total revenue for the last fiscal year?", "intent": "large magnitude, likely scale suffix"}
+{"id": "t2-001", "tier": "T2", "query": "Compare AAPL and MSFT on P/E and market cap.", "intent": "two entities x two fields — transposition risk"}
+{"id": "t2-002", "tier": "T2", "query": "Which of TSLA, RIVN and LCID had the highest volume yesterday?", "intent": "selection among retrieved values"}
+{"id": "t2-003", "tier": "T2", "query": "Show me SPY's last price and its 52-week range.", "intent": "several fields, one entity"}
+{"id": "t2-004", "tier": "T2", "query": "How do NVDA and AMD compare on gross margin?", "intent": "two entities, one field"}
+{"id": "t2-005", "tier": "T2", "query": "Give me the 2-year and 10-year Treasury yields.", "intent": "two rates, no arithmetic asked"}
+{"id": "t2-006", "tier": "T2", "query": "Which is more expensive on a P/E basis, KO or PEP?", "intent": "comparison with a judgement word"}
+{"id": "t2-007", "tier": "T2", "query": "List the last prices for AAPL, MSFT, GOOGL and AMZN.", "intent": "four values — ordering/labelling risk"}
+{"id": "t2-008", "tier": "T2", "query": "Compare JPM, BAC and WFC on dividend yield.", "intent": "three entities, one field"}
+{"id": "t2-009", "tier": "T2", "query": "What are the open, high, low and close for QQQ today?", "intent": "four fields, one entity"}
+{"id": "t2-010", "tier": "T2", "query": "Which had a bigger market cap yesterday, META or TSLA?", "intent": "binary comparison"}
+{"id": "t2-011", "tier": "T2", "query": "Show me revenue and net income for ORCL last quarter.", "intent": "two fundamentals"}
+{"id": "t2-012", "tier": "T2", "query": "Compare Bitcoin and Ethereum prices.", "intent": "crypto, very different magnitudes"}
+{"id": "t2-013", "tier": "T2", "query": "What are EUR/USD, GBP/USD and USD/JPY right now?", "intent": "three FX pairs"}
+{"id": "t2-014", "tier": "T2", "query": "Which of the mega-cap techs has the lowest P/E?", "intent": "implicit universe — may invent members"}
+{"id": "t2-015", "tier": "T2", "query": "Give me XOM and CVX market caps and dividend yields.", "intent": "two entities x two fields"}
+{"id": "t2-016", "tier": "T2", "query": "Compare the 52-week highs of AAPL and NVDA.", "intent": "range fields, two entities"}
+{"id": "t2-017", "tier": "T2", "query": "What's the volume on SPY versus QQQ today?", "intent": "large integers, two entities"}
+{"id": "t2-018", "tier": "T2", "query": "Show operating margin for WMT, TGT and COST.", "intent": "three retailers, one field"}
+{"id": "t2-019", "tier": "T2", "query": "Which is yielding more, the 5-year or the 30-year?", "intent": "curve comparison, no spread asked"}
+{"id": "t2-020", "tier": "T2", "query": "Compare gold and silver prices today.", "intent": "commodities, different magnitudes"}
+{"id": "t2-021", "tier": "T2", "query": "Give me last price and volume for AMD, INTC and MU.", "intent": "three entities x two fields"}
+{"id": "t2-022", "tier": "T2", "query": "How do DIS and NFLX compare on revenue?", "intent": "two entities, fundamentals"}
+{"id": "t2-023", "tier": "T2", "query": "What are the current levels of the S&P 500, Nasdaq and Dow?", "intent": "three indices, similar magnitudes"}
+{"id": "t2-024", "tier": "T2", "query": "Compare PFE and MRK on P/E and dividend yield.", "intent": "pharma pair, two fields"}
+{"id": "t2-025", "tier": "T2", "query": "Which had higher EPS last quarter, GOOGL or META?", "intent": "binary, fundamentals"}
+{"id": "t2-026", "tier": "T2", "query": "Show me the highs and lows for TSLA and NVDA today.", "intent": "two entities x two fields — high transposition risk"}
+{"id": "t2-027", "tier": "T2", "query": "What are the 3-month, 2-year and 10-year yields?", "intent": "three points on the curve"}
+{"id": "t2-028", "tier": "T2", "query": "Compare BA and LMT on total debt.", "intent": "balance-sheet, large magnitudes"}
+{"id": "t2-029", "tier": "T2", "query": "Give me the last prices for the FAANG names.", "intent": "acronym universe — membership may be invented"}
+{"id": "t2-030", "tier": "T2", "query": "Which is cheaper on price-to-book, C or GS?", "intent": "multiple, judgement word"}
+{"id": "t2-031", "tier": "T2", "query": "Show WTI and Brent prices.", "intent": "two closely-priced commodities"}
+{"id": "t2-032", "tier": "T2", "query": "Compare market caps of V, MA and AXP.", "intent": "three payment names"}
+{"id": "t2-033", "tier": "T2", "query": "What are AAPL's and MSFT's free cash flows?", "intent": "two entities, cash flow"}
+{"id": "t2-034", "tier": "T2", "query": "Which of SPY, IWM and DIA is up the most today?", "intent": "requires per-entity change — borderline T3"}
+{"id": "t2-035", "tier": "T2", "query": "Give me CPI and the unemployment rate.", "intent": "two macro series"}
+{"id": "t2-036", "tier": "T2", "query": "Compare NKE and LULU on gross margin and P/E.", "intent": "two entities x two fields"}
+{"id": "t2-037", "tier": "T2", "query": "What are the last closes for T, VZ and TMUS?", "intent": "three telecom names"}
+{"id": "t2-038", "tier": "T2", "query": "Show me shares outstanding for AAPL and GOOGL.", "intent": "large integers"}
+{"id": "t2-039", "tier": "T2", "query": "Which has the higher dividend yield, O or VICI?", "intent": "REIT pair, close values"}
+{"id": "t2-040", "tier": "T2", "query": "Compare the VIX and the S&P 500 level.", "intent": "very different magnitudes"}
+{"id": "t2-041", "tier": "T2", "query": "Give me revenue for the last three fiscal years for CRM.", "intent": "three periods, one entity"}
+{"id": "t2-042", "tier": "T2", "query": "What are the open and close for AAPL, MSFT and NVDA?", "intent": "three entities x two fields"}
+{"id": "t2-043", "tier": "T2", "query": "Compare UNH and CVS on operating margin.", "intent": "healthcare pair"}
+{"id": "t2-044", "tier": "T2", "query": "Show me Bitcoin, Ethereum and Solana prices.", "intent": "three crypto, wide magnitude spread"}
+{"id": "t2-045", "tier": "T2", "query": "Which is bigger by market cap, Saudi Aramco or Apple?", "intent": "cross-listing, may not be retrievable"}
+{"id": "t2-046", "tier": "T2", "query": "Give me 52-week ranges for SPY and QQQ.", "intent": "two entities x two bounds"}
+{"id": "t2-047", "tier": "T2", "query": "Compare F and GM on P/E and revenue.", "intent": "automakers, two fields"}
+{"id": "t2-048", "tier": "T2", "query": "What are the yields on the 1-year and 7-year Treasuries?", "intent": "less-common tenors"}
+{"id": "t2-049", "tier": "T2", "query": "Show last price and market cap for LLY and NVO.", "intent": "two entities x two fields"}
+{"id": "t2-050", "tier": "T2", "query": "Which of AAPL, MSFT and AMZN has the largest revenue?", "intent": "three entities, selection"}
+{"id": "t3-001", "tier": "T3", "query": "What's AAPL trading at, and how much has it moved today?", "intent": "price retrieved, move must be computed"}
+{"id": "t3-002", "tier": "T3", "query": "What's the spread between the 2-year and 10-year Treasury right now?", "intent": "two values, one derived difference — classic gap #3"}
+{"id": "t3-003", "tier": "T3", "query": "By what percentage did NVDA outperform the S&P last month?", "intent": "multi-hop plus arithmetic"}
+{"id": "t3-004", "tier": "T3", "query": "How much has TSLA fallen from its 52-week high?", "intent": "two retrieved values, percentage derived"}
+{"id": "t3-005", "tier": "T3", "query": "What's the combined market cap of AAPL, MSFT and GOOGL?", "intent": "sum of three retrieved values"}
+{"id": "t3-006", "tier": "T3", "query": "How much did META's revenue grow year over year?", "intent": "growth rate from two periods"}
+{"id": "t3-007", "tier": "T3", "query": "What's the average of the 2-, 5- and 10-year yields?", "intent": "mean of three retrieved values"}
+{"id": "t3-008", "tier": "T3", "query": "How far is SPY from its 52-week low, in percent?", "intent": "derived percentage"}
+{"id": "t3-009", "tier": "T3", "query": "What's the gold-to-silver ratio right now?", "intent": "ratio of two retrieved prices"}
+{"id": "t3-010", "tier": "T3", "query": "How much has Bitcoin gained this year?", "intent": "requires a year-start reference point"}
+{"id": "t3-011", "tier": "T3", "query": "What is NVDA's earnings yield?", "intent": "inverse of P/E — derived"}
+{"id": "t3-012", "tier": "T3", "query": "How much bigger is Apple than Ford by market cap?", "intent": "ratio or difference, phrasing is ambiguous"}
+{"id": "t3-013", "tier": "T3", "query": "What's the 3-month/10-year curve spread?", "intent": "derived spread, inversion territory"}
+{"id": "t3-014", "tier": "T3", "query": "How much did AMZN's operating income change from last quarter?", "intent": "period-over-period difference"}
+{"id": "t3-015", "tier": "T3", "query": "What percentage of Apple's revenue is net income?", "intent": "derived margin from two figures"}
+{"id": "t3-016", "tier": "T3", "query": "How much has the dollar moved against the yen this month?", "intent": "FX change, needs a reference date"}
+{"id": "t3-017", "tier": "T3", "query": "What's the total dividend income on 500 shares of KO annually?", "intent": "arithmetic on a retrieved per-share figure"}
+{"id": "t3-018", "tier": "T3", "query": "How much more does MSFT yield than AAPL?", "intent": "difference of two small percentages"}
+{"id": "t3-019", "tier": "T3", "query": "What's the intraday range on TSLA as a percentage of the open?", "intent": "two OHLC values, derived percentage"}
+{"id": "t3-020", "tier": "T3", "query": "How much has the S&P risen since the start of the quarter?", "intent": "needs a quarter-start level"}
+{"id": "t3-021", "tier": "T3", "query": "What is JPM's market cap divided by its revenue?", "intent": "explicit derived ratio"}
+{"id": "t3-022", "tier": "T3", "query": "How much did oil move in the last week?", "intent": "change over a window"}
+{"id": "t3-023", "tier": "T3", "query": "What's the combined revenue of the big three automakers?", "intent": "implicit universe plus a sum"}
+{"id": "t3-024", "tier": "T3", "query": "How much has GOOGL's share count changed over three years?", "intent": "buyback effect, derived"}
+{"id": "t3-025", "tier": "T3", "query": "What's the premium of Brent over WTI?", "intent": "derived spread on close prices"}
+{"id": "t3-026", "tier": "T3", "query": "By how much did NFLX beat or miss on EPS last quarter?", "intent": "needs actual and estimate, then a difference"}
+{"id": "t3-027", "tier": "T3", "query": "What's AMD's price as a multiple of book value?", "intent": "derived multiple"}
+{"id": "t3-028", "tier": "T3", "query": "How much is the 10-year yield up since January?", "intent": "change with a date anchor"}
+{"id": "t3-029", "tier": "T3", "query": "What would a 10% drop in AAPL do to its market cap?", "intent": "hypothetical arithmetic on a retrieved value"}
+{"id": "t3-030", "tier": "T3", "query": "What's the average daily volume for SPY over the past week?", "intent": "mean over a retrieved series"}
+{"id": "t3-031", "tier": "T3", "query": "How much has UNH underperformed the S&P this year?", "intent": "relative performance, two series"}
+{"id": "t3-032", "tier": "T3", "query": "What's the payout ratio for CVX?", "intent": "dividend over earnings — derived"}
+{"id": "t3-033", "tier": "T3", "query": "How far apart are the 5-year and 30-year yields?", "intent": "derived spread, colloquial phrasing"}
+{"id": "t3-034", "tier": "T3", "query": "What's Ethereum's market cap relative to Bitcoin's?", "intent": "derived ratio"}
+{"id": "t3-035", "tier": "T3", "query": "How much did WMT's margin change year over year?", "intent": "difference of two percentages"}
+{"id": "t3-036", "tier": "T3", "query": "What's the total value of 100 shares each of AAPL, MSFT and NVDA?", "intent": "weighted sum"}
+{"id": "t3-037", "tier": "T3", "query": "How much has the VIX moved this week?", "intent": "change over a window"}
+{"id": "t3-038", "tier": "T3", "query": "What's INTC's revenue per share?", "intent": "revenue over share count — derived"}
+{"id": "t3-039", "tier": "T3", "query": "By what percent is QQQ outperforming SPY this month?", "intent": "two series, relative derived"}
+{"id": "t3-040", "tier": "T3", "query": "What's the difference between Apple's high and low today?", "intent": "simple derived range"}
+{"id": "t3-041", "tier": "T3", "query": "How much would $10,000 in NVDA a year ago be worth now?", "intent": "compounding on a retrieved return"}
+{"id": "t3-042", "tier": "T3", "query": "What's the aggregate dividend yield of KO, PEP and PG?", "intent": "average of three, weighting ambiguous"}
+{"id": "t3-043", "tier": "T3", "query": "How much has natural gas fallen from its high this year?", "intent": "drawdown, derived"}
+{"id": "t3-044", "tier": "T3", "query": "What's BAC's efficiency ratio?", "intent": "bank-specific derived metric"}
+{"id": "t3-045", "tier": "T3", "query": "How much of Costco's revenue growth came from membership fees?", "intent": "decomposition — likely not retrievable as one figure"}
+{"id": "t3-046", "tier": "T3", "query": "What's the spread between IG and high-yield credit right now?", "intent": "two series, derived spread"}
+{"id": "t3-047", "tier": "T3", "query": "How much has DIS recovered from its low?", "intent": "derived percentage from two values"}
+{"id": "t3-048", "tier": "T3", "query": "What's the ratio of the Nasdaq to the S&P?", "intent": "derived ratio of two index levels"}
+{"id": "t3-049", "tier": "T3", "query": "How much did Tesla's deliveries change quarter over quarter?", "intent": "period difference on an operating metric"}
+{"id": "t3-050", "tier": "T3", "query": "What's the implied annual return if AMD keeps this quarter's pace?", "intent": "annualisation — compounding arithmetic"}
+{"id": "t4-001", "tier": "T4", "query": "What's the Sharpe ratio of an equal-weight AAPL/MSFT portfolio over the last year?", "intent": "needs returns and a risk-free rate — gap-filling"}
+{"id": "t4-002", "tier": "T4", "query": "What's AAPL's implied volatility for the January expiry?", "intent": "options data likely unavailable"}
+{"id": "t4-003", "tier": "T4", "query": "How does NVDA's latest quarter compare to analyst consensus?", "intent": "consensus estimates likely unavailable"}
+{"id": "t4-004", "tier": "T4", "query": "What's the beta of TSLA against the Nasdaq?", "intent": "requires a regression over two series"}
+{"id": "t4-005", "tier": "T4", "query": "What's the correlation between gold and the S&P over the past year?", "intent": "requires paired series and a computation"}
+{"id": "t4-006", "tier": "T4", "query": "What's the average analyst price target for META?", "intent": "sell-side data, likely absent"}
+{"id": "t4-007", "tier": "T4", "query": "What's the max drawdown on ARKK since inception?", "intent": "long history plus a path-dependent calculation"}
+{"id": "t4-008", "tier": "T4", "query": "What's the put/call ratio on SPY today?", "intent": "options flow data"}
+{"id": "t4-009", "tier": "T4", "query": "What's the 30-day realised volatility of Bitcoin?", "intent": "requires a return series and a computation"}
+{"id": "t4-010", "tier": "T4", "query": "What percentage of AAPL is held by institutions?", "intent": "ownership data, often unavailable"}
+{"id": "t4-011", "tier": "T4", "query": "What's the short interest on GME?", "intent": "reported semi-monthly, often absent"}
+{"id": "t4-012", "tier": "T4", "query": "How much of NVDA's revenue comes from China?", "intent": "segment detail, often not in structured data"}
+{"id": "t4-013", "tier": "T4", "query": "What's the forward P/E on the S&P 500?", "intent": "requires forward estimates"}
+{"id": "t4-014", "tier": "T4", "query": "What's the tracking error of IWM against the Russell 2000?", "intent": "paired series plus a computation"}
+{"id": "t4-015", "tier": "T4", "query": "What's the expected dividend growth rate for JNJ?", "intent": "forecast — inherently not retrievable"}
+{"id": "t4-016", "tier": "T4", "query": "What's the option-adjusted spread on the corporate bond index?", "intent": "specialised fixed-income analytic"}
+{"id": "t4-017", "tier": "T4", "query": "What's my portfolio's exposure to tech?", "intent": "no portfolio was provided — should ask, not answer"}
+{"id": "t4-018", "tier": "T4", "query": "What's the probability AAPL closes above 250 this month?", "intent": "requires a model, not data"}
+{"id": "t4-019", "tier": "T4", "query": "What's the 5-year CAGR of MSFT's dividend?", "intent": "long history plus compounding"}
+{"id": "t4-020", "tier": "T4", "query": "What's the current fear and greed index reading?", "intent": "third-party proprietary index"}
+{"id": "t4-021", "tier": "T4", "query": "What's the average holding period for SPY investors?", "intent": "not a retrievable quantity at all"}
+{"id": "t4-022", "tier": "T4", "query": "What's the skew on TSLA options?", "intent": "options surface data"}
+{"id": "t4-023", "tier": "T4", "query": "How much did hedge funds add to NVDA last quarter?", "intent": "13F aggregation, likely unavailable"}
+{"id": "t4-024", "tier": "T4", "query": "What's the Altman Z-score for Boeing?", "intent": "composite requiring several inputs"}
+{"id": "t4-025", "tier": "T4", "query": "What's the information ratio of QQQ versus SPY over three years?", "intent": "paired series plus computation"}
+{"id": "t4-026", "tier": "T4", "query": "What's the consensus revenue estimate for AMZN next quarter?", "intent": "forward estimates"}
+{"id": "t4-027", "tier": "T4", "query": "What's the current TED spread?", "intent": "legacy series, may be discontinued"}
+{"id": "t4-028", "tier": "T4", "query": "How volatile has the 10-year yield been this quarter?", "intent": "vague quantity, invites an invented number"}
+{"id": "t4-029", "tier": "T4", "query": "What's the weighted average cost of capital for KO?", "intent": "requires assumptions, not retrievable"}
+{"id": "t4-030", "tier": "T4", "query": "What's the insider ownership percentage at TSLA?", "intent": "ownership data"}
+{"id": "t4-031", "tier": "T4", "query": "What's the historical average P/E for the S&P over 20 years?", "intent": "long history plus an average"}
+{"id": "t4-032", "tier": "T4", "query": "What's the implied move on NVDA into earnings?", "intent": "options-derived, needs a surface"}
+{"id": "t4-033", "tier": "T4", "query": "How correlated are AAPL and MSFT daily returns?", "intent": "paired series plus computation"}
+{"id": "t4-034", "tier": "T4", "query": "What's the free float of BRK.A?", "intent": "float data often absent"}
+{"id": "t4-035", "tier": "T4", "query": "What's the Sortino ratio for the Nasdaq this year?", "intent": "downside-deviation computation"}
+{"id": "t4-036", "tier": "T4", "query": "What's the current repo rate?", "intent": "money-market series, often unavailable"}
+{"id": "t4-037", "tier": "T4", "query": "How much of Walmart's growth is e-commerce?", "intent": "segment decomposition"}
+{"id": "t4-038", "tier": "T4", "query": "What's the average bid-ask spread on IWM?", "intent": "microstructure data"}
+{"id": "t4-039", "tier": "T4", "query": "What's the dividend discount model value for PG?", "intent": "requires model assumptions"}
+{"id": "t4-040", "tier": "T4", "query": "What's the 1-year forward EUR/USD rate?", "intent": "forward curve, likely unavailable"}
+{"id": "t4-041", "tier": "T4", "query": "How does Apple's valuation compare to its historical average?", "intent": "needs a long history plus an average"}
+{"id": "t4-042", "tier": "T4", "query": "What's the current equity risk premium?", "intent": "derived from assumptions, no single source"}
+{"id": "t4-043", "tier": "T4", "query": "What's the total return of SPY including dividends this year?", "intent": "requires a total-return series"}
+{"id": "t4-044", "tier": "T4", "query": "What's the days-to-cover on AMC?", "intent": "short interest over volume"}
+{"id": "t4-045", "tier": "T4", "query": "What's the earnings surprise history for GOOGL?", "intent": "estimates plus actuals over time"}
+{"id": "t4-046", "tier": "T4", "query": "How much would I have made day-trading TSLA last month?", "intent": "unanswerable without a strategy definition"}
+{"id": "t4-047", "tier": "T4", "query": "What's the credit default swap spread on Ford?", "intent": "CDS data, not in retail feeds"}
+{"id": "t4-048", "tier": "T4", "query": "What's the average recovery rate on high-yield defaults?", "intent": "credit research, not market data"}
+{"id": "t4-049", "tier": "T4", "query": "What's the current put skew on the S&P 500?", "intent": "options surface"}
+{"id": "t4-050", "tier": "T4", "query": "What's the R-squared of AMD against the semiconductor index?", "intent": "regression over paired series"}
