@@ -24,6 +24,7 @@ from sgbench.export import export_for_adjudication, write_rubric  # noqa: E402
 from sgbench.run import (  # noqa: E402
     capture,
     fixture_target,
+    load_dotenv,
     load_triples,
     preflight,
     verify_all,
@@ -40,6 +41,9 @@ RUBRIC = RESULTS / "adjudication-rubric.txt"
 
 
 def cmd_capture(args) -> int:
+    loaded = load_dotenv()
+    if loaded:
+        print(f"  loaded from .env: {', '.join(loaded)}")
     qs = qmod.load()
     for w in preflight(qs, minimum=args.min_per_tier):
         print(f"  [warn] {w}")
@@ -48,7 +52,18 @@ def cmd_capture(args) -> int:
         target, name = fixture_target(REPO / "fixtures"), "fixture"
     elif args.target == "reference":
         from sgbench.targets.reference import make_target, prompt_fingerprint
-        target, name = make_target(model=args.model or "claude-sonnet-5"), "reference"
+        try:
+            target = make_target(model=args.model or "claude-sonnet-5")
+        except RuntimeError as exc:
+            # A missing key is the expected first-run state, not a crash.
+            print(f"  [stop] {exc}\n")
+            print("  Put it in a .env at the repo root (already gitignored):")
+            print("      echo 'ANTHROPIC_API_KEY=sk-ant-...' >> .env\n")
+            print("  Then re-run. Start small to see the cost:")
+            print("      .venv/bin/python scripts/run_study.py capture \\")
+            print("          --target reference --tier T1 --limit 5")
+            return 2
+        name = "reference"
         # The prompt and the window caps are part of the result. Recording them
         # next to the capture is what makes the run auditable later.
         (RESULTS).mkdir(parents=True, exist_ok=True)
@@ -70,6 +85,8 @@ def cmd_capture(args) -> int:
         return 2
 
     selected = [q for q in qs if not args.tier or q.tier == args.tier]
+    if args.limit:
+        selected = selected[: args.limit]
     print(f"\ncapturing {len(selected)} queries against '{name}' -> {TRIPLES}")
 
     captured = capture(
@@ -146,6 +163,8 @@ def main() -> int:
     c.add_argument("--tier", default=None, help="limit to one tier")
     c.add_argument("--model", default=None, help="model id, recorded for provenance")
     c.add_argument("--min-per-tier", type=int, default=50)
+    c.add_argument("--limit", type=int, default=None,
+                   help="cap the run — check cost before all 200")
     c.set_defaults(func=cmd_capture)
 
     v = sub.add_parser("verify", help="verify a recorded capture (free, repeatable)")

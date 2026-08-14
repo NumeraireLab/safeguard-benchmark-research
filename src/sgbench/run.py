@@ -27,6 +27,32 @@ from sgbench.capture import Triple
 from sgbench.queries import Query, QuerySet
 from sgbench.verify import Outcome, verify_triple
 
+
+def load_dotenv(path: Optional[Path] = None) -> list[str]:
+    """Read KEY=VALUE lines from .env into the environment.
+
+    Capture needs an API key, and a key exported in one shell does not survive
+    into the next. A gitignored .env is the one place it can live that is both
+    persistent and not committable. Existing environment variables always win.
+    """
+    import os
+
+    path = path or Path(__file__).resolve().parents[2] / ".env"
+    loaded: list[str] = []
+    if not path.exists():
+        return loaded
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key, value = key.strip(), value.strip().strip("'\"")
+        if key and key not in os.environ:
+            os.environ[key] = value
+            loaded.append(key)
+    return loaded
+
+
 # A target turns a query into a message list. Keeping it a plain callable is
 # what lets the runner stay agnostic while the OpenBB adapter is unverified.
 Target = Callable[[str], Any]
