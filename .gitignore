@@ -1,0 +1,23 @@
+# Captured study output. Large, and must not enter history before the
+# publication commit — see README on committing the query set first.
+#
+# Scoped to results/ deliberately. A blanket `*.jsonl` also swallowed
+# queries/queries.jsonl, and that file MUST be committed before any run —
+# git history is the only proof the queries were not tuned toward a result.
+results/
+
+# Secrets
+.env
+*.env
+.envrc
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.DS_Store

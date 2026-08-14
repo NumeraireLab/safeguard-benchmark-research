@@ -1,0 +1,41 @@
+{
+  "_comment": "Hand-written LangGraph-shaped turn used to exercise extraction and verification with no agent framework installed. The answer states one grounded number (241.84) and two that appear nowhere in the retrieved data (the 3.2% change and the 1.87T market cap) — so a correct run reports FREEZE with both flagged.",
+  "messages": [
+    {
+      "type": "human",
+      "content": "What's AAPL trading at, and how much has it moved today?"
+    },
+    {
+      "type": "ai",
+      "content": "",
+      "tool_calls": [
+        {
+          "id": "call_1",
+          "name": "get_quote",
+          "args": { "symbol": "AAPL" }
+        },
+        {
+          "id": "call_2",
+          "name": "get_daily_range",
+          "args": { "symbol": "AAPL", "window": "1d" }
+        }
+      ]
+    },
+    {
+      "type": "tool",
+      "tool_call_id": "call_1",
+      "name": "get_quote",
+      "content": "{\"symbol\": \"AAPL\", \"last\": 241.84, \"currency\": \"USD\"}"
+    },
+    {
+      "type": "tool",
+      "tool_call_id": "call_2",
+      "name": "get_daily_range",
+      "content": "{\"symbol\": \"AAPL\", \"open\": 239.10, \"high\": 242.55, \"low\": 238.72}"
+    },
+    {
+      "type": "ai",
+      "content": "AAPL is trading at $241.84, up about 3.2% on the day. That puts its market capitalisation near $1.87T."
+    }
+  ]
+}

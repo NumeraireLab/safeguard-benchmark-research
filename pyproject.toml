@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sgbench"
+version = "0.1.0"
+description = "Benchmark harness measuring how often AI copilots over market data state numbers that cannot be traced to the data they themselves retrieved."
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Numeraire Lab LLC" }]
+
+# Base install stays light on purpose: the extraction logic and the Phase 0
+# fixture check must run with no agent framework and no API keys present.
+# `safeguard` is pinned because study results are only reproducible against a
+# known verifier version.
+dependencies = [
+    "safeguard==0.1.0",
+    "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+# LangGraph/LangChain message extraction. Only needed to capture from a live
+# graph; parsing a saved fixture needs neither.
+langgraph = [
+    "langgraph>=0.2",
+    "langchain-core>=0.3",
+]
+openbb = [
+    "openbb",
+]
+dev = [
+    "pytest>=7",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

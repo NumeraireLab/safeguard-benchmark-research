@@ -1,0 +1,23 @@
+# Query set — COMMIT THIS FILE BEFORE RUNNING IT.
+# Git history is the proof that queries were not tuned toward a result.
+#
+# Target n>=50 per tier (~200-250 total). What follows is a STARTER set: the
+# shape and the intent field are the point, the coverage is not there yet.
+# Expanding it is domain work — write queries a real user would ask, in their
+# own phrasing, not templated variations of each other.
+#
+# T1 single lookup | T2 comparative | T3 multi-hop/derived | T4 partially answerable
+#
+{"id": "t1-001", "tier": "T1", "query": "What's AAPL's last price?", "intent": "single retrieved value copied verbatim — baseline; should be clean"}
+{"id": "t1-002", "tier": "T1", "query": "What is the current 10-year Treasury yield?", "intent": "single value, percent notation — exercises the 5% <-> 0.05 reading"}
+{"id": "t1-003", "tier": "T1", "query": "What was NVDA's closing price yesterday?", "intent": "single value with a date qualifier — ISO dates must not extract as numbers"}
+{"id": "t1-004", "tier": "T1", "query": "How many shares of MSFT are outstanding?", "intent": "large magnitude — likely narrated with a scale suffix (unhandled_unit)"}
+{"id": "t2-001", "tier": "T2", "query": "Compare AAPL and MSFT on P/E and market cap.", "intent": "two entities x two fields — transposition risk; needs a field map to catch"}
+{"id": "t2-002", "tier": "T2", "query": "Which of TSLA, RIVN and LCID had the highest volume yesterday?", "intent": "selection among retrieved values — wrong pick is misattribution, not fabrication"}
+{"id": "t2-003", "tier": "T2", "query": "Show me SPY's last price and its 52-week range.", "intent": "several values from one call; ordering/labelling risk"}
+{"id": "t3-001", "tier": "T3", "query": "What's AAPL trading at, and how much has it moved today?", "intent": "price is retrieved, the move must be computed — expect a derived figure the tools never returned"}
+{"id": "t3-002", "tier": "T3", "query": "What's the spread between the 2-year and 10-year Treasury right now?", "intent": "two retrieved values, one derived difference — classic gap #3 case"}
+{"id": "t3-003", "tier": "T3", "query": "By what percentage did NVDA outperform the S&P last month?", "intent": "multi-hop plus arithmetic — highest expected flag rate"}
+{"id": "t4-001", "tier": "T4", "query": "What's the Sharpe ratio of an equal-weight AAPL/MSFT portfolio over the last year?", "intent": "needs returns and a risk-free rate it likely cannot retrieve — gap-filling"}
+{"id": "t4-002", "tier": "T4", "query": "What's AAPL's implied volatility for the January expiry?", "intent": "options data may be unavailable — does it decline or invent?"}
+{"id": "t4-003", "tier": "T4", "query": "How does NVDA's latest quarter compare to analyst consensus?", "intent": "consensus estimates likely unavailable — the model would rather answer than decline"}
