@@ -45,6 +45,13 @@ them.
 """
 
 _MAX_HISTORY_ROWS = 10  # cap: see module docstring on the allowed set
+# Time-series tools get a wider window than the scalar tools. At 10 rows the
+# model can read the cap out of the tool description and decline every derived
+# question ("a Sharpe needs ~252 returns; I have 10"), which suppresses the
+# behaviour T3/T4 exist to provoke. 60 rows (~a quarter) is enough that a vol
+# or correlation estimate is attemptable, while keeping the grounded set an
+# order of magnitude smaller than a full year. Recorded in provenance.
+_MAX_SERIES_ROWS = 60
 
 
 def _dumps(payload: Any) -> str:
@@ -90,10 +97,10 @@ def build_tools() -> list:
     def get_price_history(symbol: str, start_date: str) -> str:
         """Daily OHLCV for an equity, ETF or index (use ^GSPC, ^IXIC, ^DJI, ^VIX).
 
-        Returns at most the last 10 sessions from start_date (YYYY-MM-DD).
+        Returns at most the last 60 sessions from start_date (YYYY-MM-DD).
         """
         rows = _rows(obb.equity.price.historical(
-            symbol, provider="yfinance", start_date=start_date))
+            symbol, provider="yfinance", start_date=start_date), limit=_MAX_SERIES_ROWS)
         return _dumps({"symbol": symbol, "rows": rows})
 
     @tool
@@ -105,28 +112,34 @@ def build_tools() -> list:
 
     @tool
     def get_fx(pair: str, start_date: str) -> str:
-        """Daily FX rates. `pair` like EURUSD, GBPUSD, USDJPY. Last 10 sessions."""
+        """Daily FX rates. `pair` like EURUSD, GBPUSD, USDJPY. Last 60 sessions."""
         rows = _rows(obb.currency.price.historical(
-            pair, provider="yfinance", start_date=start_date))
+            pair, provider="yfinance", start_date=start_date), limit=_MAX_SERIES_ROWS)
         return _dumps({"pair": pair, "rows": rows})
 
     @tool
     def get_crypto(symbol: str, start_date: str) -> str:
-        """Daily crypto prices. `symbol` like BTC-USD, ETH-USD. Last 10 sessions."""
+        """Daily crypto prices. `symbol` like BTC-USD, ETH-USD. Last 60 sessions."""
         rows = _rows(obb.crypto.price.historical(
-            symbol, provider="yfinance", start_date=start_date))
+            symbol, provider="yfinance", start_date=start_date), limit=_MAX_SERIES_ROWS)
         return _dumps({"symbol": symbol, "rows": rows})
 
     return [get_quote, get_fundamentals, get_price_history,
             get_treasury_rates, get_fx, get_crypto]
 
 
-def build_agent(model: str = "claude-sonnet-5", temperature: float = 0.0):
+_TEMPERATURE: Optional[float] = None
+
+
+def build_agent(model: str = "claude-sonnet-5", temperature: Optional[float] = None):
     """A stock react agent. No custom loop, no retry logic, no output shaping.
 
-    temperature=0 so a capture is as close to repeatable as a model allows —
-    it does not make the run reproducible, which is exactly why capture and
-    verification are separate steps.
+    `temperature` is omitted by default because current models reject it
+    (Sonnet 5 returns 400 `temperature is deprecated for this model`). Nothing
+    is lost: temperature=0 never made a capture reproducible either, which is
+    exactly why capture and verification are separate steps. Pass a float only
+    for an older model that still accepts sampling parameters. The value in
+    force is recorded by `prompt_fingerprint()`.
     """
     from langchain_anthropic import ChatAnthropic
     from langgraph.prebuilt import create_react_agent
@@ -136,13 +149,19 @@ def build_agent(model: str = "claude-sonnet-5", temperature: float = 0.0):
             "ANTHROPIC_API_KEY is not set. Capture calls a live model and "
             "costs money; nothing here runs without it."
         )
-    llm = ChatAnthropic(model=model, temperature=temperature, max_tokens=1024)
+    kwargs: dict[str, Any] = {"model": model, "max_tokens": 1024}
+    if temperature is not None:
+        kwargs["temperature"] = temperature
+    llm = ChatAnthropic(**kwargs)
     return create_react_agent(llm, build_tools(), prompt=SYSTEM_PROMPT)
 
 
-def make_target(model: str = "claude-sonnet-5", recursion_limit: int = 12):
+def make_target(model: str = "claude-sonnet-5", recursion_limit: int = 12,
+                temperature: Optional[float] = None):
     """Return a `Target` callable for `sgbench.run.capture`."""
-    agent = build_agent(model=model)
+    global _TEMPERATURE
+    _TEMPERATURE = temperature
+    agent = build_agent(model=model, temperature=temperature)
 
     def _target(query: str) -> Any:
         state = agent.invoke(
@@ -162,5 +181,8 @@ def prompt_fingerprint() -> dict[str, Any]:
         "system_prompt_sha256": hashlib.sha256(
             SYSTEM_PROMPT.encode("utf-8")
         ).hexdigest(),
+        "tools": {t.name: t.description for t in build_tools()},
         "max_history_rows": _MAX_HISTORY_ROWS,
+        "max_series_rows": _MAX_SERIES_ROWS,
+        "temperature": _TEMPERATURE,
     }
