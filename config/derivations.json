@@ -1,0 +1,68 @@
+{
+  "_comment": "Declared derivations for the reference copilot. OPT-IN: the study reports rates with and without this file, because every entry widens the allowed set and widening is the silent direction. Formulas were written from the derivations the copilot actually performed in the 2026-08-21 capture, not from a wishlist. series_endpoints: first-vs-last of a long series is 2 values per field, not k(k-1) \u2014 it answers 'performance over the window' without reopening closure search.",
+  "derivations": [
+    {
+      "name": "price_to_sales",
+      "expr": "last_price / revenue_per_share"
+    },
+    {
+      "name": "price_to_book_from_price",
+      "expr": "last_price / book_value"
+    },
+    {
+      "name": "eps_from_pe",
+      "expr": "last_price / pe_ratio"
+    },
+    {
+      "name": "bid_ask_spread",
+      "expr": "ask - bid"
+    },
+    {
+      "name": "day_range",
+      "expr": "high - low"
+    },
+    {
+      "name": "change_from_prev_close",
+      "expr": "last_price - prev_close"
+    },
+    {
+      "name": "pct_from_prev_close",
+      "expr": "(last_price - prev_close) / prev_close * 100"
+    },
+    {
+      "name": "pct_from_year_high",
+      "expr": "(last_price - year_high) / year_high * 100"
+    },
+    {
+      "name": "pct_from_year_low",
+      "expr": "(last_price - year_low) / year_low * 100"
+    },
+    {
+      "name": "recovery_from_year_low",
+      "expr": "last_price - year_low"
+    },
+    {
+      "name": "drawdown_from_year_high",
+      "expr": "last_price - year_high"
+    },
+    {
+      "name": "net_debt",
+      "expr": "enterprise_value - market_cap"
+    },
+    {
+      "name": "equity_value_per_share",
+      "expr": "market_cap / revenue_per_share"
+    },
+    {
+      "name": "mid_price",
+      "expr": "(bid + ask) / 2"
+    }
+  ],
+  "same_field_shapes": [
+    "difference",
+    "pct_change",
+    "ratio"
+  ],
+  "max_values_per_field": 4,
+  "series_endpoints": true
+}
