@@ -9,6 +9,8 @@ reason to bypass it.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any, Optional
 
 from pydantic import BaseModel, Field
@@ -45,11 +47,42 @@ class Outcome(BaseModel):
     def measurable(self) -> bool:
         return self.tool_call_count > 0 and self.raw_result_count < self.tool_call_count
 
+    @property
+    def declined(self) -> bool:
+        """No tool was called at all.
+
+        Distinct from unparsed-result exclusion. On the partially-answerable
+        tier this is the *correct* behaviour, and folding it into a single
+        "excluded" count hides the best thing the copilot does. Reported as a
+        headline in its own right, never as an exclusion footnote.
+        """
+        return self.tool_call_count == 0
+
+
+def target_prompt_text(provenance_path: Optional[Path] = None) -> str:
+    """System prompt + tool descriptions, as one block of prose.
+
+    These are given to the model, so numbers it quotes back out of them are
+    grounded — the "60 sessions" cap in a tool description is the model
+    reading its own configuration aloud, not inventing a figure. Read from
+    results/target-provenance.json so the text used here is the same text the
+    run was captured under.
+    """
+    path = provenance_path or (Path("results") / "target-provenance.json")
+    if not path.exists():
+        return ""
+    prov = json.loads(path.read_text(encoding="utf-8"))
+    parts = [str(prov.get("system_prompt") or "")]
+    parts += [str(v) for v in (prov.get("tools") or {}).values()]
+    return "\n".join(p for p in parts if p)
+
 
 def verify_triple(
     triple: Triple,
     guard: Optional[Guard] = None,
     field_map: Optional[FieldMap] = None,
+    prompt_text: Optional[str] = None,
+    derivations: Optional[object] = None,
 ) -> Outcome:
     """Verify one triple and return a flat outcome row."""
     guard = guard or Guard(field_map=field_map)
@@ -57,6 +90,12 @@ def verify_triple(
         GuardRequest(
             source_values=triple.source_values(),
             output_text=triple.answer,
+            # The query is part of what the model was given: "value of 500
+            # shares" makes 500 a grounded number in the answer.
+            prompt_text="\n".join(
+                x for x in (triple.query, prompt_text) if x
+            ) or None,
+            derivations=derivations,
             context={
                 "query_id": triple.query_id,
                 "tier": triple.tier,
@@ -99,7 +138,19 @@ def summarize(outcomes: list[Outcome]) -> dict[str, Any]:
     is the kind of thing the precision review exists to prevent.
     """
     measurable = [o for o in outcomes if o.measurable]
-    excluded = len(outcomes) - len(measurable)
+    # A soft flag is a third outcome, not a freeze and not a pass. Counted
+    # separately under every policy so the rate is comparable across runs.
+    # Under the enforcing policy this lands in `classification`; under the
+    # advisory one it lands in `observed`. Count both so the third outcome is
+    # comparable across policies.
+    review = [o for o in measurable
+              if o.classification == "derived_undeclared"
+              or any("(derived_verified_chain)" in f for f in o.observed)]
+    declined = [o for o in outcomes if o.declined]
+    # Excluded-but-not-a-decline: tools ran, results arrived as unparsed prose.
+    # That measures the harness, and is the only honest exclusion.
+    unparsed = [o for o in outcomes
+                if not o.measurable and not o.declined]
     by_tier: dict[str, dict[str, int]] = {}
     for o in measurable:
         tier = o.tier or "untiered"
@@ -107,10 +158,19 @@ def summarize(outcomes: list[Outcome]) -> dict[str, Any]:
         row["n"] += 1
         if not o.passed:
             row["frozen"] += 1
+    for d in declined:
+        by_tier.setdefault(d.tier or "untiered",
+                           {"n": 0, "frozen": 0, "declined": 0})
+    for d in declined:
+        by_tier[d.tier or "untiered"]["declined"] = \
+            by_tier[d.tier or "untiered"].get("declined", 0) + 1
     return {
         "total_captured": len(outcomes),
         "measurable": len(measurable),
-        "excluded_unmeasurable": excluded,
-        "frozen": sum(1 for o in measurable if not o.passed),
+        "declined_no_tool_call": len(declined),
+        "excluded_unparsed": len(unparsed),
+        "frozen": sum(1 for o in measurable if not o.passed
+                      and o.classification != "derived_undeclared"),
+        "review_verified_derivation": len(review),
         "by_tier": by_tier,
     }

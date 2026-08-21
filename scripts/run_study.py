@@ -32,6 +32,11 @@ from sgbench.run import (  # noqa: E402
 )
 from sgbench.verify import summarize  # noqa: E402
 
+# The model the reference target runs on when --model is not given. Named once:
+# it has to reach make_target(), the provenance file, AND every triple, and
+# they must agree.
+DEFAULT_MODEL = "claude-sonnet-5"
+
 RESULTS = REPO / "results"
 TRIPLES = RESULTS / "triples.jsonl"
 OUTCOMES = RESULTS / "outcomes.jsonl"
@@ -50,10 +55,12 @@ def cmd_capture(args) -> int:
 
     if args.target == "fixture":
         target, name = fixture_target(REPO / "fixtures"), "fixture"
+        model_id = None  # no model ran; recording one would be a lie
     elif args.target == "reference":
         from sgbench.targets.reference import make_target, prompt_fingerprint
+        model_id = args.model or DEFAULT_MODEL
         try:
-            target = make_target(model=args.model or "claude-sonnet-5")
+            target = make_target(model=model_id)
         except RuntimeError as exc:
             # A missing key is the expected first-run state, not a crash.
             print(f"  [stop] {exc}\n")
@@ -69,7 +76,7 @@ def cmd_capture(args) -> int:
         (RESULTS).mkdir(parents=True, exist_ok=True)
         (RESULTS / "target-provenance.json").write_text(
             json.dumps(
-                {"target": name, "model": args.model or "claude-sonnet-5",
+                {"target": name, "model": model_id,
                  **prompt_fingerprint()}, indent=2
             ),
             encoding="utf-8",
@@ -90,7 +97,7 @@ def cmd_capture(args) -> int:
     print(f"\ncapturing {len(selected)} queries against '{name}' -> {TRIPLES}")
 
     captured = capture(
-        selected, target, TRIPLES, model=args.model, target_name=name,
+        selected, target, TRIPLES, model=model_id, target_name=name,
     )
     ok = sum(1 for t in captured if t.is_complete())
     print(f"  captured {len(captured)}  complete {ok}  incomplete {len(captured) - ok}")
@@ -109,7 +116,18 @@ def cmd_verify(args) -> int:
         print(f"  no capture found at {TRIPLES} — run `capture` first")
         return 1
     triples = load_triples(TRIPLES)
-    outcomes = verify_all(triples, AUDIT)
+    derivations = None
+    if args.derivations:
+        from safeguard import DerivationSet
+        derivations = DerivationSet.from_json(args.derivations)
+        n = len(derivations.derivations)
+        print(f"  derivations: {n} formula(s) + shapes "
+              f"{derivations.same_field_shapes or '[]'} "
+              f"(cap {derivations.max_values_per_field}/field) "
+              f"from {args.derivations}")
+        print("  [!] this WIDENS the allowed set — report the rate with and "
+              "without it\n")
+    outcomes = verify_all(triples, AUDIT, derivations=derivations)
     write_outcomes(outcomes, OUTCOMES)
 
     stats = summarize(outcomes)
@@ -168,6 +186,10 @@ def main() -> int:
     c.set_defaults(func=cmd_capture)
 
     v = sub.add_parser("verify", help="verify a recorded capture (free, repeatable)")
+    v.add_argument(
+        "--derivations", type=Path, default=None,
+        help="DerivationSet JSON. Opt-in: it widens the allowed set, so run "
+             "with and without it and publish both rates.")
     v.set_defaults(func=cmd_verify)
 
     e = sub.add_parser("export", help="write the manual adjudication sheet")

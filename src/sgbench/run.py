@@ -25,7 +25,7 @@ from safeguard.core import FieldMap, Guard, JSONLStorage
 from sgbench.adapters.langgraph import triple_from_messages
 from sgbench.capture import Triple
 from sgbench.queries import Query, QuerySet
-from sgbench.verify import Outcome, verify_triple
+from sgbench.verify import Outcome, target_prompt_text, verify_triple
 
 
 def load_dotenv(path: Optional[Path] = None) -> list[str]:
@@ -113,6 +113,7 @@ def verify_all(
     triples: Iterable[Triple],
     audit_path: Path,
     field_map: Optional[FieldMap] = None,
+    derivations: Optional[object] = None,
 ) -> list[Outcome]:
     """Verify captured triples, persisting every audit record.
 
@@ -122,7 +123,12 @@ def verify_all(
     """
     audit_path.parent.mkdir(parents=True, exist_ok=True)
     guard = Guard(storage=JSONLStorage(audit_path), field_map=field_map)
-    return [verify_triple(t, guard=guard) for t in triples]
+    # Read once: the same prompt and tool descriptions the run was captured
+    # under, so a number the model quoted from its own configuration traces.
+    prompt_text = target_prompt_text(audit_path.parent / "target-provenance.json")
+    return [verify_triple(t, guard=guard, prompt_text=prompt_text,
+                          derivations=derivations)
+            for t in triples]
 
 
 def write_outcomes(outcomes: Iterable[Outcome], path: Path) -> None:
