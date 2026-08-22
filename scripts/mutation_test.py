@@ -33,13 +33,14 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
-RESULTS = REPO / "results"
+RESULTS = None   # bound from --run
 
 from safeguard import Guard, GuardRequest  # noqa: E402
 from safeguard.core.verification import (  # noqa: E402
     _candidates, _candidate_matches, _maskable, walk_numeric,
 )
 from sgbench.capture import Triple  # noqa: E402
+from sgbench.paths import add_run_arg, run_dir  # noqa: E402
 from sgbench.verify import target_prompt_text  # noqa: E402
 
 _NUM = re.compile(r"(?<![\w.])(-?\d+(?:,\d{3})*(?:\.\d+)?)(?![\w])")
@@ -94,7 +95,11 @@ def main() -> int:
     ap.add_argument("--limit", type=int, default=None, help="rows to mutate")
     ap.add_argument("--seed", type=int, default=20260821)
     ap.add_argument("--verbose", action="store_true", help="print every escape")
+    add_run_arg(ap)
     args = ap.parse_args()
+    global RESULTS
+    RESULTS = run_dir(args.run)
+    print(f"  run: {RESULTS}")
 
     derivations = None
     if args.derivations:

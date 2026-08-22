@@ -26,15 +26,23 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "scripts"))
-RESULTS = REPO / "results"
+sys.path.insert(0, str(REPO / "src"))
+
+from sgbench.paths import add_run_arg, run_dir  # noqa: E402
+
+# Judgements are keyed by query_id and query_ids repeat across runs, so a
+# shared adjudication file would silently show one run's verdict against
+# another run's answer. One directory per run keeps them apart.
+RESULTS = run_dir()
 OUT = RESULTS / "adjudication.jsonl"
 
-from review import candidates, flatten, load  # noqa: E402
+from review import candidates, flatten, load, why_flagged  # noqa: E402
 
 CATEGORIES = [
     ("fabricated", "appears nowhere in retrieved data, and is wrong — THE headline"),
     ("derived_correct", "arithmetically right but computed, not retrieved (gap #3)"),
     ("unit_scale", "right value at a different scale, $1.87T vs 1.87e12 (gap #2)"),
+    ("rounding_error", "derivation right, RESULT misrounded by one ulp -- THEIR error"),
     ("parametric_harmless", "ungrounded but not a value claim — index names, tool meta"),
     ("scaffolding", "table/section/page reference or echoed year (gap #4)"),
     ("harness_artifact", "capture failed or tool result unparsed — not a copilot error"),
@@ -95,6 +103,11 @@ def build_rows() -> list[dict]:
         values = list(flatten(src))
         flags = o.get("flagged") or []
         fnd = findings.get(qid, [])
+        # Keyed by OFFSET, never by token: the same figure appears twice in
+        # one answer with different working each time, and a token-keyed map
+        # silently shows the last one for both.
+        for f in fnd:
+            f["why"] = why_flagged(t.get("answer", ""), f["start"], f["end"])
         if not o.get("passed"):
             status = "FREEZE"
         elif any(f.get("reason") == "derived_verified_chain" for f in fnd):
@@ -108,6 +121,7 @@ def build_rows() -> list[dict]:
             "flagged": flags,
             "findings": findings.get(qid, []),
             "candidates": {f: candidates(f, values) for f in flags},
+
             "gate_verdict": status,
             "gate_class": o.get("classification"),
             "saved": saved.get(qid),
@@ -176,6 +190,7 @@ pre{margin:0;white-space:pre-wrap;word-break:break-word;font:12px/1.5 ui-monospa
 #retrieved{max-height:320px;overflow:auto;background:#0c0e13;padding:10px;border-radius:6px}
 mark{background:#3b2f13;color:var(--warn);padding:0 2px;border-radius:3px}
 mark.obs{background:#1d2a3a;color:var(--accent)}
+.obs2{color:var(--accent)}
 mark[title*="derived_verified_chain"]{background:#16301f;color:var(--good)}
 button{background:#222835;color:var(--fg);border:1px solid var(--line);border-radius:6px;
        padding:6px 12px;cursor:pointer;font:inherit}
@@ -283,13 +298,17 @@ function renderRow(){
   $('answer').innerHTML=highlight(cur.answer,cur.findings);
   $('vcount').textContent=`${cur.value_count} numeric values`;
   $('retrieved').textContent=JSON.stringify(cur.retrieved,null,2);
-  $('cands').innerHTML = cur.flagged.length===0
+  const enf=(cur.findings||[]).filter(f=>f.reason!=='unhandled_unit');
+  $('cands').innerHTML = enf.length===0
     ? '<span class="gate">no tokens flagged — read the answer against Retrieved and look for a number the gate missed</span>'
-    : cur.flagged.map(f=>{
-        const hits=cur.candidates[f]||[];
-        return `<div style="margin-bottom:9px"><span class="tok">${esc(f)}</span><div class="cand">`+
+    : enf.map(fd=>{
+        const f=fd.token, hits=cur.candidates[f]||[];
+        return `<div style="margin-bottom:9px"><span class="tok">${esc(f)}</span>`+
+          `<span class="gate"> @${fd.start}</span><div class="cand">`+
           (hits.length? hits.map(h=>'&nbsp;&nbsp;'+esc(h)).join('<br>')
-                      : '&nbsp;&nbsp;<span class="none">no source value matches at any scale or rounding</span>')+
+                      : (fd.why
+                          ? '&nbsp;&nbsp;<span class="obs2">'+esc(fd.why).replace(/\n/g,'<br>&nbsp;&nbsp;')+'</span>'
+                          : '&nbsp;&nbsp;<span class="none">no source value traces this figure</span>'))+
           '</div></div>';
       }).join('');
   const s=cur.saved||{};
@@ -351,8 +370,20 @@ addEventListener('keydown',e=>{
 """
 
 if __name__ == "__main__":
+    import argparse
+    import review
+
+    ap = argparse.ArgumentParser(description=__doc__)
+    add_run_arg(ap)
+    ap.add_argument("--port", type=int, default=8901)
+    args = ap.parse_args()
+    RESULTS = run_dir(args.run)
+    OUT = RESULTS / "adjudication.jsonl"
+    review.RESULTS = RESULTS          # `candidates`/`load` read it too
+
     Handler.rows = build_rows()
-    port = 8901
+    port = args.port
+    print(f"  run: {RESULTS}")
     print(f"  {len(Handler.rows)} rows to adjudicate")
     print(f"  judgements -> {OUT}")
     print(f"  open http://127.0.0.1:{port}   (ctrl-c to stop)\n")

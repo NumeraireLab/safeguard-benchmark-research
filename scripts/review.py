@@ -28,11 +28,17 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
-RESULTS = REPO / "results"
+from sgbench.paths import add_run_arg, run_dir  # noqa: E402
 
+RESULTS = run_dir()   # rebound in main() if --run is given
+
+# Only the readings the CHECKER tries for a bare token. The inverse percent
+# reading (x100) is admitted solely inside a verified chain, so offering it
+# here invents "rescaled" explanations the gate never used -- eight different
+# rows truncate to the same two decimals once divided by 100.
 SCALES = [
     (1e12, "trillions"), (1e9, "billions"), (1e6, "millions"),
-    (1e3, "thousands"), (1e-2, "percent<->decimal"), (1e2, "decimal<->percent"),
+    (1e3, "thousands"), (1e-2, "percent<->decimal"),
 ]
 
 
@@ -79,11 +85,40 @@ def candidates(token: str, values: list[tuple[str, float]]) -> list[str]:
             continue
         for mult, label in SCALES:
             scaled = val / mult
-            # Scale the band with the value, exactly as the checker does.
-            if _precision_match(scaled, want, dec):
+            # Scale the band with the value, exactly as the checker does --
+            # and by ROUNDING only. Truncation is accepted for the direct
+            # reading; applying it to a rescaled one manufactures matches.
+            if abs(scaled - want) <= 0.5 * (10.0 ** -dec) + 1e-9 * max(
+                abs(scaled), abs(want), 1.0
+            ):
                 hits.append(f"rescaled   {path} = {val!r}  (/{mult:g}, {label})")
                 break
     return hits
+
+
+def why_flagged(answer: str, start: int, end: int) -> str:
+    """What the checker actually attempted for this token.
+
+    "no source value matches at any scale or rounding" describes only the
+    bare-token search. When a number is part of arithmetic the model wrote,
+    the real question was whether that chain verified -- and saying otherwise
+    pushes the adjudicator toward `unit_scale` when the answer is
+    `derived_correct`.
+    """
+    from safeguard.core.verification import (
+        _all_expression_spans, _maskable, _parenthetical_derivations,
+    )
+    masked = _maskable(answer)
+    for a, b in _all_expression_spans(masked):
+        if a <= start < b:
+            return (f"inside arithmetic the model wrote: {answer[a:b].strip()[:90]!r}"
+                    f"\n      the chain did NOT verify -- treat as a derivation, "
+                    f"not a scale or rounding issue")
+    for p0, p1, body in _parenthetical_derivations(answer):
+        if p0 <= start < p1 or (0 <= p0 - end <= 4):
+            return (f"working stated alongside it: {body.strip()[:90]!r}"
+                    f"\n      the chain did NOT verify -- treat as a derivation")
+    return ""
 
 
 def load(path: Path) -> dict:
@@ -101,7 +136,10 @@ def main() -> int:
     ap.add_argument("--list", action="store_true", help="list ids and exit")
     ap.add_argument("--passed", action="store_true",
                     help="with --list, show passed rows instead of flagged")
+    add_run_arg(ap)
     args = ap.parse_args()
+    global RESULTS
+    RESULTS = run_dir(args.run)
 
     triples = load(RESULTS / "triples.jsonl")
     outcomes = load(RESULTS / "outcomes.jsonl")
@@ -141,6 +179,7 @@ def main() -> int:
             hits = candidates(f, values)
             print(f"\n  {f!r}")
             if not hits:
+                why = why_flagged(t.get("answer", ""), 0, 0)
                 print("      no source value matches at any scale or rounding")
             for h in hits[:6]:
                 print(f"      {h}")

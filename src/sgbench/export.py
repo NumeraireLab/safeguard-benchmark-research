@@ -35,6 +35,9 @@ RUBRIC = {
     "fabricated": "appears nowhere in retrieved data, and is wrong — the headline finding",
     "derived_correct": "arithmetically right but computed, not retrieved (gap #3)",
     "unit_scale": "right value at a different scale, e.g. $1.87T vs 1.87e12 (gap #2)",
+    "rounding_error": "derivation right, operands trace, RESULT misrounded by one "
+                      "unit in the last place -- a copilot error, not our gap "
+                      "(added during adjudication 2026-08-21)",
     "parametric_harmless": "ungrounded but not a value claim, e.g. 'founded in 1976'",
     "scaffolding": "table/section/page reference or echoed year (gap #4)",
     "harness_artifact": "capture failed or tool result arrived unparsed — not a copilot error",

@@ -20,6 +20,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
 
 from sgbench import queries as qmod  # noqa: E402
+from sgbench.paths import add_run_arg, run_dir  # noqa: E402
 from sgbench.export import export_for_adjudication, write_rubric  # noqa: E402
 from sgbench.run import (  # noqa: E402
     capture,
@@ -37,12 +38,20 @@ from sgbench.verify import summarize  # noqa: E402
 # they must agree.
 DEFAULT_MODEL = "claude-sonnet-5"
 
-RESULTS = REPO / "results"
-TRIPLES = RESULTS / "triples.jsonl"
-OUTCOMES = RESULTS / "outcomes.jsonl"
-AUDIT = RESULTS / "audit.jsonl"
-SHEET = RESULTS / "adjudication.csv"
-RUBRIC = RESULTS / "adjudication-rubric.txt"
+# Bound in main() once --run is known. One capture is one directory: an
+# in-sample run and a held-out run must not overwrite each other.
+RESULTS = TRIPLES = OUTCOMES = AUDIT = SHEET = RUBRIC = None
+
+
+def _bind(args) -> None:
+    global RESULTS, TRIPLES, OUTCOMES, AUDIT, SHEET, RUBRIC
+    RESULTS = run_dir(getattr(args, "run", None), create=True)
+    TRIPLES = RESULTS / "triples.jsonl"
+    OUTCOMES = RESULTS / "outcomes.jsonl"
+    AUDIT = RESULTS / "audit.jsonl"
+    SHEET = RESULTS / "adjudication.csv"
+    RUBRIC = RESULTS / "adjudication-rubric.txt"
+    print(f"  run: {RESULTS}")
 
 
 def cmd_capture(args) -> int:
@@ -127,6 +136,36 @@ def cmd_verify(args) -> int:
               f"from {args.derivations}")
         print("  [!] this WIDENS the allowed set — report the rate with and "
               "without it\n")
+    # Which verifier produced these verdicts. target-provenance.json records
+    # the copilot side; without this the run records what was asked and not
+    # what judged it, and a held-out result cannot be re-checked later.
+    import safeguard
+    import subprocess
+    sg_root = Path(safeguard.__file__).resolve().parents[2]
+    try:
+        sha = subprocess.run(
+            ["git", "-C", str(sg_root), "rev-parse", "HEAD"],
+            capture_output=True, text=True, timeout=5,
+        ).stdout.strip() or None
+        dirty = bool(subprocess.run(
+            ["git", "-C", str(sg_root), "status", "--porcelain"],
+            capture_output=True, text=True, timeout=5,
+        ).stdout.strip())
+    except Exception:
+        sha, dirty = None, None
+    (RESULTS / "verifier-provenance.json").write_text(
+        json.dumps({
+            "safeguard_version": safeguard.__version__,
+            "safeguard_commit": sha,
+            "safeguard_dirty": dirty,
+            "derivations": str(args.derivations) if args.derivations else None,
+        }, indent=2),
+        encoding="utf-8",
+    )
+    if dirty:
+        print("  [warn] the verifier's working tree is dirty — this run is "
+              "not reproducible against a tagged version")
+
     outcomes = verify_all(triples, AUDIT, derivations=derivations)
     write_outcomes(outcomes, OUTCOMES)
 
@@ -197,7 +236,10 @@ def main() -> int:
     e.add_argument("--seed", type=int, default=20260814)
     e.set_defaults(func=cmd_export)
 
+    for sp in (c, v, e):
+        add_run_arg(sp)
     args = ap.parse_args()
+    _bind(args)
     return args.func(args)
 
 
