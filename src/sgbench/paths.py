@@ -37,7 +37,9 @@ def run_dir(name: str | None = None, *, create: bool = False) -> Path:
         path = RESULTS
     if create:
         path.mkdir(parents=True, exist_ok=True)
-    return path
+    # Resolve through `current`: the provenance files record where a run
+    # actually lives, and "results/current" names whatever is active today.
+    return path.resolve()
 
 
 def add_run_arg(parser) -> None:

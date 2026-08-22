@@ -81,6 +81,41 @@ once and re-verified any number of times: when a checker gap is fixed,
 re-verify the *same* recorded runs and compare rates directly. Fusing them
 would confound the fix with a fresh sample.
 
+### One directory per run, and why in-sample rates do not travel
+
+Re-verifying a recorded capture is how a checker gap gets fixed. It is also
+how a checker gets **tuned on its own test set**: the 08-21 run produced
+fifteen fixes and fifteen derivation formulas, every one written by reading
+those 200 answers. Every rate measured on that capture is in-sample and
+cannot be quoted as a general one.
+
+The answer is a held-out capture judged by a verifier that cannot move
+underneath it — so runs never share a directory:
+
+```
+results/
+  current -> run-02-heldout-20260821      the active run
+  run-01-insample-20260821/               capture, verdicts, adjudication
+  run-02-heldout-20260821/                a fresh sample, frozen verifier
+```
+
+Every script takes `--run NAME`, reads `$SGBENCH_RUN`, or follows the
+`current` symlink, falling back to a flat `results/`. Adjudication
+judgements are keyed by `query_id` and query ids repeat across runs, so a
+shared `adjudication.jsonl` would show one run's verdict against another
+run's answer.
+
+`verify` writes `verifier-provenance.json` beside `target-provenance.json` —
+Safeguard version, commit sha, dirty flag, derivations file — and warns when
+the verifier's tree is dirty. A run that records what was asked but not what
+judged it is not reproducible, whatever the README claims.
+
+```bash
+.venv/bin/python scripts/run_study.py capture --target reference --run run-03
+.venv/bin/python scripts/run_study.py verify  --run run-03
+.venv/bin/python scripts/adjudicate.py        --run run-01-insample-20260821
+```
+
 ### What the numbers require
 
 `verify` reports what the **gate** did. That is not the finding. The copilot's
@@ -129,7 +164,10 @@ demo/                   per-segment pitch cases
 fixtures/               recorded turns; replay source for demos
 scripts/phase0.py       the capture gate
 scripts/run_study.py    the pipeline
-results/                gitignored until publication
+scripts/review.py       one row, its retrieved values, and why each flag fired
+scripts/adjudicate.py   local blind-adjudication UI
+scripts/mutation_test.py  recall the adjudication cannot see
+results/<run>/          gitignored until publication; one directory per run
 ```
 
 ## Study and demo are not the same thing
