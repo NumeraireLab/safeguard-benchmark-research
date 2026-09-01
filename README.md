@@ -7,9 +7,10 @@ traced to the data they themselves retrieved.
 > number that could not be traced to the data the copilot itself retrieved —
 > without a gate, all X reached the user.*
 
-Not a before/after study. [Safeguard](https://github.com/numerairelab/safeguard)
-does not change what a model generates, so there is nothing to compare against.
-This measures **the problem**, not the product.
+Not a before/after study. Safeguard — the verifier this harness calls, and a
+proprietary product, not a public repository — does not change what a model
+generates, so there is nothing to compare against. This measures **the
+problem**, not the product.
 
 ## Why the ground truth is free
 
@@ -21,9 +22,15 @@ it collapses if the retrieved data cannot be captured. Hence Phase 0.
 ## Phase 0 — run this first
 
 ```bash
-python3 -m pip install -e ../Safeguard        # local Safeguard
+python3 -m pip install -e ../Safeguard        # local Safeguard (licensed copy)
 python3 scripts/phase0.py                      # fixture: no deps, no API keys
 ```
+
+Running the harness needs a licensed copy of the verifier at the pinned
+version. What does **not** need one is reading the instrument: the query set,
+the target's full configuration, and the extraction and aggregation code are
+all here, and every run records the verifier's version and commit sha beside
+its verdicts.
 
 Proves the full path — extract a turn, assemble the grounding payload, verify,
 write an audit record. The bundled fixture contains ungrounded numbers, so a
